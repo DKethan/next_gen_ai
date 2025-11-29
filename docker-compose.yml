@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: mindnext-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: mindnext
+    networks:
+      - mindnext-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: mindnext-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - mindnext-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mindnext-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URL=mongodb://mongodb:27017
+      - REDIS_URL=redis://redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    volumes:
+      - ./backend/data:/app/data
+      - ./backend/.env:/app/.env
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - mindnext-network
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mindnext-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000/api/v1
+      - VITE_WS_URL=ws://localhost:8000/api/v1
+    depends_on:
+      - backend
+    networks:
+      - mindnext-network
+    command: npm run dev -- --host
+
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mindnext-celery-worker
+    environment:
+      - MONGODB_URL=mongodb://mongodb:27017
+      - REDIS_URL=redis://redis:6379
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    volumes:
+      - ./backend/data:/app/data
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - mindnext-network
+    command: celery -A app.workers.precompute_worker.celery_app worker --loglevel=info
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  mindnext-network:
+    driver: bridge
+
