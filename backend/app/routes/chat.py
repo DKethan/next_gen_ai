@@ -172,7 +172,14 @@ Provide a comprehensive answer."""
         
     except Exception as e:
         logger.error(f"Error in chat: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        error_msg = str(e)
+        # Check if it's an OpenAI API key error
+        if "invalid_api_key" in error_msg or "Incorrect API key" in error_msg or "401" in error_msg:
+            raise HTTPException(
+                status_code=401, 
+                detail="Invalid OpenAI API key. Please check your OPENAI_API_KEY in the .env file."
+            )
+        raise HTTPException(status_code=500, detail=f"Error: {error_msg}")
 
 def _calculate_similarity(str1: str, str2: str) -> float:
     """Simple similarity calculation based on common words"""
@@ -197,11 +204,26 @@ async def get_session(session_id: str):
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
         
+        # Convert datetime objects to ISO strings
+        def serialize_datetime(obj):
+            if isinstance(obj, datetime):
+                return obj.isoformat()
+            return obj
+        
+        messages = session.get("messages", [])
+        # Serialize timestamps in messages
+        serialized_messages = []
+        for msg in messages:
+            serialized_msg = {**msg}
+            if "timestamp" in serialized_msg and isinstance(serialized_msg["timestamp"], datetime):
+                serialized_msg["timestamp"] = serialized_msg["timestamp"].isoformat()
+            serialized_messages.append(serialized_msg)
+        
         return {
             "session_id": session.get("session_id"),
-            "messages": session.get("messages", []),
-            "created_at": session.get("created_at"),
-            "updated_at": session.get("updated_at")
+            "messages": serialized_messages,
+            "created_at": serialize_datetime(session.get("created_at")),
+            "updated_at": serialize_datetime(session.get("updated_at"))
         }
         
     except HTTPException:
@@ -225,13 +247,21 @@ async def list_sessions(limit: int = 50):
             messages = session.get("messages", [])
             last_message = messages[-1] if messages else None
             
+            # Convert datetime objects to ISO strings
+            created_at = session.get("created_at")
+            updated_at = session.get("updated_at")
+            if isinstance(created_at, datetime):
+                created_at = created_at.isoformat()
+            if isinstance(updated_at, datetime):
+                updated_at = updated_at.isoformat()
+            
             result.append({
                 "session_id": session.get("session_id"),
                 "title": messages[0].get("content", "New Conversation")[:50] if messages else "New Conversation",
                 "last_message": last_message.get("content", "") if last_message else "",
                 "message_count": len(messages),
-                "created_at": session.get("created_at"),
-                "updated_at": session.get("updated_at"),
+                "created_at": created_at,
+                "updated_at": updated_at,
                 "messages": messages  # Include messages for context analysis
             })
         
@@ -239,6 +269,24 @@ async def list_sessions(limit: int = 50):
         
     except Exception as e:
         logger.error(f"Error listing sessions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/chat/session/{session_id}")
+async def delete_session(session_id: str):
+    """Delete a chat session"""
+    try:
+        db = await get_database()
+        result = await db.chat_sessions.delete_one({"session_id": session_id})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        return {"message": "Session deleted successfully", "session_id": session_id}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting session: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/chat/user-context")

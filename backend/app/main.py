@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    logger.info("Starting up MindNext API...")
+    logger.info("Starting up NextMind API...")
     await connect_to_mongo()
     try:
         await connect_to_redis()
@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
     logger.info("Startup complete")
     yield
     # Shutdown
-    logger.info("Shutting down MindNext API...")
+    logger.info("Shutting down NextMind API...")
     await close_mongo_connection()
     try:
         await close_redis_connection()
@@ -60,7 +60,7 @@ app.include_router(ws.router, prefix=settings.API_V1_PREFIX, tags=["websocket"])
 @app.get("/")
 async def root():
     return {
-        "message": "MindNext API",
+        "message": "NextMind API",
         "version": settings.VERSION,
         "docs": "/docs"
     }

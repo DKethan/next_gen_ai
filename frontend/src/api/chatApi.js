@@ -46,6 +46,11 @@ export const chatApi = {
     const response = await api.get(`/precomputed-answer/${answerId}`)
     return response.data
   },
+  
+  deleteSession: async (sessionId) => {
+    const response = await api.delete(`/chat/session/${sessionId}`)
+    return response.data
+  },
 }
 
 export default chatApi

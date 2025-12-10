@@ -1,2 +1,2 @@
-# MindNext Backend
+# NextMind Backend
 

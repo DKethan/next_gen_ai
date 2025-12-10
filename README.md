@@ -1,78 +1,88 @@
-# MindNext: Proactive AI That Predicts the User's Next Question
+# NextMind 🧠
 
-A production-grade AI system that reads conversation history, predicts what the user is thinking, and prepares responses before they type - enabling 0ms answer time, smart preloading, context-aware RAG, and autocomplete suggestions.
+A proactive AI chat system that predicts your next question and prepares answers before you ask - delivering instant responses with zero wait time.
 
-## 🏗️ Architecture
+## ✨ Features
 
-```
-Frontend (React + Vite) → Backend (FastAPI) → Multi-Agent Pipeline → LLM Layer → Data Stores
-```
-
-### Components
-
-- **Frontend**: React + Vite + Tailwind + Zustand + WebSockets
-- **Backend**: FastAPI + Uvicorn
-- **LLM**: GPT-4o or custom fine-tuned Llama-3.1 8B
-- **Vector Store**: FAISS
-- **Databases**: MongoDB (sessions, predictions) + Redis (cache)
-- **Background Workers**: Celery for precomputation
+- **Predictive AI**: Anticipates your next question based on conversation context
+- **Instant Answers**: Precomputes responses for predicted questions
+- **Real-time Suggestions**: Live autocomplete suggestions as you type
+- **RAG Integration**: Retrieval-Augmented Generation for accurate answers
+- **WebSocket Support**: Real-time bidirectional communication
+- **Session Management**: Persistent conversation history
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- Docker and Docker Compose
-- Python 3.11+ (for local development)
-- Node.js 18+ (for local development)
-- OpenAI API key (optional, for LLM features)
+- Python 3.11+
+- Node.js 18+
+- MongoDB (or Docker)
+- Redis (or Docker)
+- OpenAI API key
 
-### Using Docker Compose (Recommended)
+### Option 1: Using Docker (Easiest)
 
-1. Clone the repository:
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/next_gen_ai.git
+   cd next_gen_ai
+   ```
+
+2. **Set up environment variables**
+   ```bash
+   cd backend
+   cp .env.example .env
+   # Edit .env and add your OPENAI_API_KEY
+   ```
+
+3. **Start all services**
+   ```bash
+   docker-compose up -d
+   ```
+
+4. **Access the application**
+   - Frontend: http://localhost:5173
+   - Backend API: http://localhost:8000
+   - API Docs: http://localhost:8000/docs
+
+### Option 2: Local Development
+
+#### Backend Setup
+
 ```bash
-cd next_gen_ai
-```
-
-2. Create a `.env` file in the `backend` directory:
-```bash
-cp backend/.env.example backend/.env
-# Edit backend/.env and add your OPENAI_API_KEY
-```
-
-3. Start all services:
-```bash
-docker-compose up -d
-```
-
-4. Access the application:
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
-
-### Local Development
-
-#### Backend
-
-```bash
+# Navigate to backend
 cd backend
+
+# Create virtual environment
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
 
-# Set up environment variables
+# Set up environment
 cp .env.example .env
-# Edit .env with your configuration
+# Edit .env with your OPENAI_API_KEY
 
-# Start MongoDB and Redis (or use Docker)
-# Then start the backend:
+# Start MongoDB and Redis (using Docker)
+docker run -d -p 27017:27017 --name mongodb mongo:7
+docker run -d -p 6379:6379 --name redis redis:7-alpine
+
+# Start the backend
 uvicorn app.main:app --reload
 ```
 
-#### Frontend
+#### Frontend Setup
 
 ```bash
+# Navigate to frontend (in a new terminal)
 cd frontend
+
+# Install dependencies
 npm install
+
+# Start development server
 npm run dev
 ```
 
@@ -85,17 +95,7 @@ next_gen_ai/
 │   │   ├── main.py              # FastAPI application
 │   │   ├── config.py            # Configuration
 │   │   ├── routes/              # API routes
-│   │   │   ├── chat.py          # Chat endpoints
-│   │   │   ├── predict.py       # Prediction endpoints
-│   │   │   ├── rag.py           # RAG endpoints
-│   │   │   └── ws.py            # WebSocket endpoints
 │   │   ├── services/            # Business logic
-│   │   │   ├── intent_predictor.py
-│   │   │   ├── next_agent.py
-│   │   │   ├── precompute_agent.py
-│   │   │   ├── rag_engine.py
-│   │   │   ├── embeddings.py
-│   │   │   └── cache.py
 │   │   ├── models/              # Data models
 │   │   ├── db/                  # Database connections
 │   │   └── workers/             # Background workers
@@ -104,10 +104,7 @@ next_gen_ai/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/          # React components
-│   │   │   ├── ChatWindow.jsx
-│   │   │   ├── MessageBubble.jsx
-│   │   │   └── TypingSuggestions.jsx
-│   │   ├── state/               # Zustand store
+│   │   ├── state/               # State management
 │   │   ├── api/                 # API clients
 │   │   └── hooks/               # Custom hooks
 │   ├── package.json
@@ -115,108 +112,68 @@ next_gen_ai/
 └── docker-compose.yml
 ```
 
-## 🧠 Multi-Agent Pipeline
+## 🔧 Configuration
 
-### Agent 1: Intent Predictor
-Predicts the most likely next question based on conversation history.
+Create a `.env` file in the `backend` directory:
 
-### Agent 2: Topic Expansion Agent
-Expands predicted questions into topic clusters.
+```env
+# OpenAI API Key (Required)
+OPENAI_API_KEY=your_api_key_here
 
-### Agent 3: RAG Planner Agent
-Determines which documents to preload from the vector store.
+# MongoDB (Optional - defaults to localhost)
+MONGODB_URL=mongodb://localhost:27017
+MONGODB_DB_NAME=nextmind
 
-### Agent 4: Precompute Answer Agent
-Generates a full answer BEFORE the user asks the question.
+# Redis (Optional - defaults to localhost)
+REDIS_URL=redis://localhost:6379
 
-## 🔌 API Endpoints
-
-### POST `/api/v1/predict-intent`
-Predict the next question the user is likely to ask.
-
-### POST `/api/v1/chat`
-Send a chat message. Uses precomputed answer if available.
-
-### POST `/api/v1/rag/query`
-Query the RAG vector store for relevant documents.
-
-### POST `/api/v1/rag/upload`
-Upload and index a document in the RAG system.
-
-### GET `/api/v1/suggestions/live/{session_id}` (WebSocket)
-Real-time prediction suggestions as the user types.
-
-## 🎨 Frontend Features
-
-- **Real-time Suggestions**: WebSocket-powered next question predictions
-- **Autocomplete**: Smart suggestions based on conversation context
-- **Preloaded Answers**: Instant responses when predictions match
-- **Streaming Responses**: Smooth chat experience
-- **Session Management**: Persistent conversation history
-
-## 🧪 Configuration
-
-Key configuration options in `backend/app/config.py`:
-
-- `PREDICTION_CONFIDENCE_THRESHOLD`: Minimum confidence to precompute answers (default: 0.8)
-- `MAX_MESSAGES_FOR_PREDICTION`: Number of messages to use for prediction (default: 5)
-- `RAG_TOP_K`: Number of documents to retrieve (default: 5)
-- `LLM_MODEL`: LLM model to use (default: "gpt-4o")
-
-## 📊 Database Schema
-
-### MongoDB Collections
-
-**chat_sessions**
-```json
-{
-  "session_id": "abc123",
-  "messages": [...],
-  "created_at": "...",
-  "updated_at": "..."
-}
+# LLM Settings (Optional)
+LLM_MODEL=gpt-4o
+LLM_TEMPERATURE=0.7
 ```
 
-**predictions**
-```json
-{
-  "session_id": "abc123",
-  "predicted_question": "...",
-  "confidence": 0.89,
-  "precomputed_answer": "...",
-  "precomputed_answer_id": "pre_94832",
-  "created_at": "..."
-}
-```
+## 📡 API Endpoints
 
-## 🔧 Development
+- `POST /api/v1/chat` - Send a chat message
+- `POST /api/v1/predict-intent` - Predict next question
+- `POST /api/v1/rag/query` - Query RAG system
+- `POST /api/v1/rag/upload` - Upload documents
+- `GET /api/v1/suggestions/live/{session_id}` - WebSocket for live suggestions
+- `GET /docs` - Interactive API documentation
 
-### Running Tests
-```bash
-# Backend tests (when implemented)
-cd backend
-pytest
-
-# Frontend tests (when implemented)
-cd frontend
-npm test
-```
+## 🛠️ Development
 
 ### Adding Documents to RAG
 
-1. Use the upload endpoint:
 ```bash
 curl -X POST http://localhost:8000/api/v1/rag/upload \
   -F "file=@your-document.pdf"
 ```
 
-2. Or add documents programmatically in the code.
+### Running Tests
+
+```bash
+# Backend
+cd backend
+pytest
+
+# Frontend
+cd frontend
+npm test
+```
 
 ## 📝 License
 
-MIT
+MIT License - feel free to fork and use!
 
 ## 🤝 Contributing
 
-Contributions welcome! Please open an issue or submit a pull request.
+Contributions are welcome! Please feel free to submit a Pull Request.
 
+## 📧 Support
+
+If you encounter any issues, please open an issue on GitHub.
+
+---
+
+**Made with ❤️ for the open source community**

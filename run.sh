@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# MindNext Quick Start Script
+# NextMind Quick Start Script
 
-echo "🚀 Starting MindNext..."
+echo "🚀 Starting NextMind..."
 echo ""
 
 # Check if .env exists

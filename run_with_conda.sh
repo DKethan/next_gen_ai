@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Script to run MindNext with conda environment
+# Script to run NextMind with conda environment
 
-echo "🚀 Starting MindNext with Conda Environment"
+echo "🚀 Starting NextMind with Conda Environment"
 echo ""
 
 # Check if conda environment exists

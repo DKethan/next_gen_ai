@@ -5,12 +5,12 @@ from typing import Optional
 class Settings(BaseSettings):
     # API Settings
     API_V1_PREFIX: str = "/api/v1"
-    PROJECT_NAME: str = "MindNext API"
+    PROJECT_NAME: str = "NextMind API"
     VERSION: str = "1.0.0"
     
     # MongoDB
     MONGODB_URL: str = "mongodb://localhost:27017"
-    MONGODB_DB_NAME: str = "mindnext"
+    MONGODB_DB_NAME: str = "nextmind"
     
     # Redis
     REDIS_URL: str = "redis://localhost:6379"

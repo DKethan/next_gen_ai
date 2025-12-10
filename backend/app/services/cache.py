@@ -51,3 +51,4 @@ class CacheManager:
         return hashlib.md5(query.encode()).hexdigest()
 
 
+

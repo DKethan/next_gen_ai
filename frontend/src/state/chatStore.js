@@ -15,7 +15,7 @@ const useChatStore = create((set, get) => ({
     set({ sessionId, currentSessionId: sessionId })
     // Save to localStorage
     if (sessionId) {
-      localStorage.setItem('mindnext_session_id', sessionId)
+      localStorage.setItem('nextmind_session_id', sessionId)
     }
   },
   
@@ -26,7 +26,7 @@ const useChatStore = create((set, get) => ({
     
     // Update session in localStorage
     if (state.sessionId) {
-      const sessionKey = `mindnext_session_${state.sessionId}`
+      const sessionKey = `nextmind_session_${state.sessionId}`
       const sessionData = {
         title: newMessages[0]?.content?.substring(0, 50) || 'New Conversation',
         lastMessage: message.content,
@@ -42,7 +42,7 @@ const useChatStore = create((set, get) => ({
     // Update session title from first message
     const state = get()
     if (state.sessionId && messages.length > 0) {
-      const sessionKey = `mindnext_session_${state.sessionId}`
+      const sessionKey = `nextmind_session_${state.sessionId}`
       const sessionData = {
         title: messages[0]?.content?.substring(0, 50) || 'New Conversation',
         lastMessage: messages[messages.length - 1]?.content || '',

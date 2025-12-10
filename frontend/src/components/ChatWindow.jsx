@@ -461,7 +461,7 @@ function ChatWindow({ sessionId: initialSessionId }) {
                 value={currentInput}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyPress}
-                placeholder="Message MindNext..."
+                placeholder="Message NextMind..."
                 rows={1}
                 className="w-full px-4 py-3 pr-12 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 text-sm leading-6 max-h-[200px] overflow-y-auto scrollbar-hide shadow-lg"
                 disabled={isLoading}
@@ -486,7 +486,7 @@ function ChatWindow({ sessionId: initialSessionId }) {
             </div>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-            MindNext can make mistakes. Check important info.
+            NextMind can make mistakes. Check important info.
           </p>
         </div>
       </div>

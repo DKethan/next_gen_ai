@@ -15,11 +15,73 @@ function Sidebar({ onSelectSession }) {
   const loadConversations = async () => {
     try {
       setIsLoading(true)
+      
+      // Get current conversations to preserve any new ones
+      const currentConversations = conversations
+      
       // Try to fetch from API first
       try {
         const apiSessions = await chatApi.listSessions()
         if (apiSessions.sessions && apiSessions.sessions.length > 0) {
-          setConversations(apiSessions.sessions)
+          // Map API response to match frontend expected format
+          const mappedSessions = apiSessions.sessions.map(session => ({
+            id: session.session_id || session.id,
+            title: session.title || 'New Conversation',
+            lastMessage: session.last_message || session.lastMessage || '',
+            updatedAt: session.updated_at || session.updatedAt || new Date().toISOString(),
+            messageCount: session.message_count || session.messageCount || 0
+          }))
+          
+          // Merge with localStorage sessions to include new conversations not yet in backend
+          const localSessions = getLocalSessions()
+          const apiSessionIds = new Set(mappedSessions.map(s => s.id))
+          
+          // Add local sessions that aren't in API response (new conversations)
+          // But only if they have messages (not empty)
+          localSessions.forEach(localSession => {
+            if (!apiSessionIds.has(localSession.id)) {
+              // Only add if it has messages or content
+              if (localSession.messageCount > 0 || (localSession.lastMessage && localSession.lastMessage.trim() !== '')) {
+                mappedSessions.push(localSession)
+              }
+            }
+          })
+          
+          // Filter out empty conversations from API results too
+          const filteredSessions = mappedSessions.filter(session => {
+            return session.messageCount > 0 || (session.lastMessage && session.lastMessage.trim() !== '')
+          })
+          
+          // Sort by date
+          filteredSessions.sort((a, b) => {
+            const dateA = new Date(a.updatedAt)
+            const dateB = new Date(b.updatedAt)
+            if (isNaN(dateA.getTime())) return 1
+            if (isNaN(dateB.getTime())) return -1
+            return dateB - dateA
+          })
+          
+          setConversations(filteredSessions)
+          
+          // Also sync to localStorage for offline access
+          mappedSessions.forEach(session => {
+            const sessionKey = `nextmind_session_${session.id}`
+            localStorage.setItem(sessionKey, JSON.stringify({
+              title: session.title,
+              lastMessage: session.lastMessage,
+              updatedAt: session.updatedAt,
+              messageCount: session.messageCount
+            }))
+          })
+          return
+        } else {
+          // API returned empty, use localStorage (empty ones already filtered)
+          const localSessions = getLocalSessions()
+          // Filter out empty conversations
+          const filteredSessions = localSessions.filter(session => {
+            return session.messageCount > 0 || (session.lastMessage && session.lastMessage.trim() !== '')
+          })
+          setConversations(filteredSessions)
           return
         }
       } catch (apiError) {
@@ -28,11 +90,19 @@ function Sidebar({ onSelectSession }) {
       
       // Fallback to localStorage
       const localSessions = getLocalSessions()
-      setConversations(localSessions)
+      // Filter out empty conversations
+      const filteredSessions = localSessions.filter(session => {
+        return session.messageCount > 0 || (session.lastMessage && session.lastMessage.trim() !== '')
+      })
+      setConversations(filteredSessions)
     } catch (error) {
       console.error('Error loading conversations:', error)
       // Fallback to localStorage on error
-      setConversations(getLocalSessions())
+      const localSessions = getLocalSessions()
+      const filteredSessions = localSessions.filter(session => {
+        return session.messageCount > 0 || (session.lastMessage && session.lastMessage.trim() !== '')
+      })
+      setConversations(filteredSessions)
     } finally {
       setIsLoading(false)
     }
@@ -40,37 +110,103 @@ function Sidebar({ onSelectSession }) {
 
   const getLocalSessions = () => {
     const sessions = []
+    const emptySessions = [] // Track empty sessions to remove
+    
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
-      if (key && key.startsWith('mindnext_session_')) {
-        const sessionId = key.replace('mindnext_session_', '')
+      if (key && key.startsWith('nextmind_session_')) {
+        const sessionId = key.replace('nextmind_session_', '')
         const sessionData = localStorage.getItem(key)
         try {
           const data = JSON.parse(sessionData)
+          // Ensure updatedAt is a valid ISO string
+          let updatedAt = data.updatedAt || new Date().toISOString()
+          if (updatedAt && typeof updatedAt === 'string') {
+            // Validate it's a valid date string
+            const date = new Date(updatedAt)
+            if (isNaN(date.getTime())) {
+              updatedAt = new Date().toISOString()
+            }
+          } else {
+            updatedAt = new Date().toISOString()
+          }
+          
+          const messageCount = data.messageCount || 0
+          const lastMessage = data.lastMessage || ''
+          const title = data.title || 'New Conversation'
+          
+          // Skip empty conversations (no messages and no content)
+          if (messageCount === 0 && (!lastMessage || lastMessage.trim() === '') && title === 'New Conversation') {
+            emptySessions.push(key)
+            continue
+          }
+          
           sessions.push({
             id: sessionId,
-            title: data.title || 'New Conversation',
-            lastMessage: data.lastMessage || '',
-            updatedAt: data.updatedAt || new Date().toISOString(),
-            messageCount: data.messageCount || 0
+            title: title,
+            lastMessage: lastMessage,
+            updatedAt: updatedAt,
+            messageCount: messageCount
           })
         } catch (e) {
-          sessions.push({
-            id: sessionId,
-            title: 'New Conversation',
-            lastMessage: '',
-            updatedAt: new Date().toISOString(),
-            messageCount: 0
-          })
+          // Invalid data, mark for removal
+          emptySessions.push(key)
         }
       }
     }
-    return sessions.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+    
+    // Remove empty sessions from localStorage
+    emptySessions.forEach(key => {
+      localStorage.removeItem(key)
+    })
+    
+    // Sort by date, handling invalid dates
+    return sessions.sort((a, b) => {
+      const dateA = new Date(a.updatedAt)
+      const dateB = new Date(b.updatedAt)
+      if (isNaN(dateA.getTime())) return 1
+      if (isNaN(dateB.getTime())) return -1
+      return dateB - dateA
+    })
   }
 
   const handleNewConversation = () => {
     const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    
+    // Create a new conversation entry in localStorage immediately
+    const sessionKey = `nextmind_session_${newSessionId}`
+    const sessionData = {
+      title: 'New Conversation',
+      lastMessage: '',
+      updatedAt: new Date().toISOString(),
+      messageCount: 0
+    }
+    localStorage.setItem(sessionKey, JSON.stringify(sessionData))
+    localStorage.setItem('nextmind_session_id', newSessionId)
+    
+    // Add to conversations list immediately (optimistic update)
+    const newConversation = {
+      id: newSessionId,
+      title: 'New Conversation',
+      lastMessage: '',
+      updatedAt: sessionData.updatedAt,
+      messageCount: 0
+    }
+    
+    // Add to the top of the list
+    setConversations(prev => {
+      // Check if it already exists to prevent duplicates
+      if (prev.some(c => c.id === newSessionId)) {
+        return prev
+      }
+      return [newConversation, ...prev]
+    })
+    
+    // Select the new session
     onSelectSession(newSessionId)
+    
+    // Don't reload immediately - let it stay. Only reload when user sends a message
+    // The conversation will be synced to backend when first message is sent
   }
 
   const handleSelectSession = (sessionId) => {
@@ -80,34 +216,94 @@ function Sidebar({ onSelectSession }) {
   const handleDeleteSession = async (sessionId, e) => {
     e.stopPropagation()
     e.preventDefault()
-    if (window.confirm('Are you sure you want to delete this conversation?')) {
-      // Remove from localStorage
-      localStorage.removeItem(`mindnext_session_${sessionId}`)
+    
+    if (!window.confirm('Are you sure you want to delete this conversation?')) {
+      return
+    }
+    
+    try {
+      // Try to delete from backend first
+      try {
+        await chatApi.deleteSession(sessionId)
+      } catch (apiError) {
+        console.log('Backend delete failed, removing from localStorage only:', apiError)
+      }
+      
+      // Always remove from localStorage as well
+      localStorage.removeItem(`nextmind_session_${sessionId}`)
       
       // If it's the current session, create a new one
       if (sessionId === currentSessionId) {
         handleNewConversation()
-      } else {
-        // Reload conversations list
-        loadConversations()
       }
+      
+      // Reload conversations list
+      loadConversations()
+    } catch (error) {
+      console.error('Error deleting session:', error)
+      alert('Failed to delete conversation. Please try again.')
     }
   }
 
   const formatDate = (dateString) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diff = now - date
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+    if (!dateString) return 'Recently'
     
-    if (days === 0) {
-      return 'Today'
-    } else if (days === 1) {
-      return 'Yesterday'
-    } else if (days < 7) {
-      return `${days} days ago`
-    } else {
-      return date.toLocaleDateString()
+    try {
+      // Handle different date formats
+      let date
+      if (typeof dateString === 'string') {
+        // If it's an ISO string without timezone, treat it as UTC
+        if (dateString.includes('T') && !dateString.includes('Z') && !dateString.includes('+')) {
+          date = new Date(dateString + 'Z')
+        } else {
+          date = new Date(dateString)
+        }
+      } else {
+        date = new Date(dateString)
+      }
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date:', dateString)
+        return 'Recently'
+      }
+      
+      const now = new Date()
+      const diff = now.getTime() - date.getTime()
+      
+      // Handle future dates (shouldn't happen, but just in case)
+      if (diff < 0) {
+        return 'Just now'
+      }
+      
+      const seconds = Math.floor(diff / 1000)
+      const minutes = Math.floor(seconds / 60)
+      const hours = Math.floor(minutes / 60)
+      const days = Math.floor(hours / 24)
+      
+      if (seconds < 60) {
+        return 'Just now'
+      } else if (minutes < 60) {
+        return minutes === 1 ? '1 minute ago' : `${minutes} minutes ago`
+      } else if (hours < 24) {
+        return hours === 1 ? '1 hour ago' : `${hours} hours ago`
+      } else if (days === 1) {
+        return 'Yesterday'
+      } else if (days < 7) {
+        return `${days} days ago`
+      } else if (days < 30) {
+        const weeks = Math.floor(days / 7)
+        return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`
+      } else {
+        return date.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric', 
+          year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined 
+        })
+      }
+    } catch (error) {
+      console.error('Error formatting date:', error, dateString)
+      return 'Recently'
     }
   }
 
@@ -147,11 +343,11 @@ function Sidebar({ onSelectSession }) {
           <div className="flex-1 overflow-y-auto w-full px-2 space-y-2">
             {conversations.slice(0, 8).map((conversation) => (
               <button
-                key={conversation.id}
-                onClick={() => handleSelectSession(conversation.id)}
+                key={conversation.id || conversation.session_id}
+                onClick={() => handleSelectSession(conversation.id || conversation.session_id)}
                 className={`
                   w-full p-2 rounded-lg transition-colors relative group
-                  ${currentSessionId === conversation.id
+                  ${currentSessionId === (conversation.id || conversation.session_id)
                     ? 'bg-blue-100 dark:bg-blue-900/30'
                     : 'hover:bg-gray-100 dark:hover:bg-gray-800'
                   }
@@ -178,7 +374,7 @@ function Sidebar({ onSelectSession }) {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  MindNext
+                  NextMind
                 </h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                   Proactive AI that predicts your next question
@@ -225,11 +421,11 @@ function Sidebar({ onSelectSession }) {
               <div className="p-2">
                 {conversations.map((conversation) => (
                   <div
-                    key={conversation.id}
-                    onClick={() => handleSelectSession(conversation.id)}
+                    key={conversation.id || conversation.session_id}
+                    onClick={() => handleSelectSession(conversation.id || conversation.session_id)}
                     className={`
                       relative p-3 rounded-lg mb-1 cursor-pointer group
-                      ${currentSessionId === conversation.id
+                      ${currentSessionId === (conversation.id || conversation.session_id)
                         ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
                         : 'hover:bg-gray-100 dark:hover:bg-gray-800'
                       }
@@ -238,17 +434,19 @@ function Sidebar({ onSelectSession }) {
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
                         <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                          {conversation.title}
+                          {conversation.title || 'New Conversation'}
                         </h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
-                          {truncateText(conversation.lastMessage)}
-                        </p>
+                        {conversation.lastMessage && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+                            {truncateText(conversation.lastMessage)}
+                          </p>
+                        )}
                         <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                          {formatDate(conversation.updatedAt)}
+                          {formatDate(conversation.updatedAt || conversation.updated_at)}
                         </p>
                       </div>
                       <button
-                        onClick={(e) => handleDeleteSession(conversation.id, e)}
+                        onClick={(e) => handleDeleteSession(conversation.id || conversation.session_id, e)}
                         onMouseDown={(e) => e.stopPropagation()}
                         className="opacity-0 group-hover:opacity-100 p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/20 transition-opacity flex-shrink-0"
                         title="Delete conversation"

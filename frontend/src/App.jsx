@@ -5,10 +5,10 @@ import './App.css'
 function App() {
   const [sessionId] = useState(() => {
     // Generate or retrieve session ID
-    const stored = localStorage.getItem('mindnext_session_id')
+    const stored = localStorage.getItem('nextmind_session_id')
     if (stored) return stored
     const newId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    localStorage.setItem('mindnext_session_id', newId)
+    localStorage.setItem('nextmind_session_id', newId)
     return newId
   })
 

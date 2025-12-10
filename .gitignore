@@ -46,7 +46,9 @@ dist-ssr/
 *~
 
 # Data
-data/
+backend/data/vector_store/
+backend/data/documents/*
+!backend/data/documents/.gitkeep
 *.db
 *.sqlite
 
@@ -60,5 +62,6 @@ Thumbs.db
 
 # Docker
 .dockerignore
+
 
 

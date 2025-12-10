@@ -37,3 +37,4 @@ export const predictionApi = {
 export default predictionApi
 
 
+
